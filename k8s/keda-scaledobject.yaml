@@ -1,0 +1,42 @@
+# ── KEDA: Scale kafka-consumer based on Kafka consumer group lag ──
+# The consumer is the Kafka reader — scaling it reduces lag directly.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: consumer-scaler
+spec:
+  scaleTargetRef:
+    name: kafka-consumer
+  pollingInterval: 15
+  cooldownPeriod: 60
+  minReplicaCount: 1
+  maxReplicaCount: 5
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: "<MSK_BOOTSTRAP_BROKERS>"
+        consumerGroup: "inference-consumer-group"
+        topic: "video-stream-1"
+        lagThreshold: "50"
+        offsetResetPolicy: "earliest"
+---
+# ── HPA: Scale inference-service based on CPU utilization ──
+# Inference is CPU-bound — scale when workers are saturated.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: inference-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: inference-service
+  minReplicas: 1
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

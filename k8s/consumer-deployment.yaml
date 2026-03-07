@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-consumer
+  labels:
+    app: kafka-consumer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-consumer
+  template:
+    metadata:
+      labels:
+        app: kafka-consumer
+    spec:
+      containers:
+        - name: consumer
+          image: <ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com/optifye/kafka-consumer:latest
+          env:
+            - name: KAFKA_BROKERS
+              valueFrom:
+                configMapKeyRef:
+                  name: pipeline-config
+                  key: kafka_brokers
+            - name: KAFKA_TOPIC
+              value: "video-stream-1"
+            - name: CONSUMER_GROUP
+              value: "inference-consumer-group"
+            - name: INFERENCE_URL
+              value: "http://inference-service:8080/predict"
+            - name: S3_BUCKET
+              valueFrom:
+                configMapKeyRef:
+                  name: pipeline-config
+                  key: s3_bucket
+            - name: S3_PREFIX
+              value: "annotated"
+            - name: BATCH_SIZE
+              value: "25"
+            - name: BATCH_TIMEOUT_SEC
+              value: "10"
+            - name: AWS_REGION
+              value: "ap-south-1"
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"

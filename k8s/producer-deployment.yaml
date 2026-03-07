@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frame-producer
+  labels:
+    app: frame-producer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frame-producer
+  template:
+    metadata:
+      labels:
+        app: frame-producer
+    spec:
+      containers:
+        - name: producer
+          image: <ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com/optifye/frame-producer:latest
+          env:
+            - name: RTSP_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: pipeline-config
+                  key: rtsp_url
+            - name: KAFKA_BROKERS
+              valueFrom:
+                configMapKeyRef:
+                  name: pipeline-config
+                  key: kafka_brokers
+            - name: KAFKA_TOPIC
+              value: "video-stream-1"
+            - name: TARGET_FPS
+              value: "5"
+            - name: JPEG_QUALITY
+              value: "80"
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"

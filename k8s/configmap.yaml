@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pipeline-config
+data:
+  # ── Replace these after terraform apply ──
+  kafka_brokers: "<MSK_BOOTSTRAP_BROKERS>"
+  rtsp_url: "rtsp://<RTSP_PRIVATE_IP>:8554/stream"
+  s3_bucket: "<S3_BUCKET_NAME>"
