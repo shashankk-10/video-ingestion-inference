@@ -1,0 +1,67 @@
+{
+  "account_id": {
+    "sensitive": false,
+    "type": "string",
+    "value": "902883117827"
+  },
+  "aws_region": {
+    "sensitive": false,
+    "type": "string",
+    "value": "ap-south-1"
+  },
+  "ecr_consumer_url": {
+    "sensitive": false,
+    "type": "string",
+    "value": "902883117827.dkr.ecr.ap-south-1.amazonaws.com/optifye/kafka-consumer"
+  },
+  "ecr_inference_url": {
+    "sensitive": false,
+    "type": "string",
+    "value": "902883117827.dkr.ecr.ap-south-1.amazonaws.com/optifye/inference-service"
+  },
+  "ecr_producer_url": {
+    "sensitive": false,
+    "type": "string",
+    "value": "902883117827.dkr.ecr.ap-south-1.amazonaws.com/optifye/frame-producer"
+  },
+  "eks_cluster_endpoint": {
+    "sensitive": false,
+    "type": "string",
+    "value": "https://E23DA837B4B77ECEB6624F52D6FFF5BD.gr7.ap-south-1.eks.amazonaws.com"
+  },
+  "eks_cluster_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "optifye-eks"
+  },
+  "msk_bootstrap_brokers": {
+    "sensitive": false,
+    "type": "string",
+    "value": "b-1.optifyekafka.qpzap4.c4.kafka.ap-south-1.amazonaws.com:9092,b-2.optifyekafka.qpzap4.c4.kafka.ap-south-1.amazonaws.com:9092"
+  },
+  "rtsp_instance_private_ip": {
+    "sensitive": false,
+    "type": "string",
+    "value": "10.0.0.27"
+  },
+  "rtsp_instance_public_ip": {
+    "sensitive": false,
+    "type": "string",
+    "value": "13.201.64.200"
+  },
+  "s3_bucket_name": {
+    "sensitive": false,
+    "type": "string",
+    "value": "optifye-annotated-frames-902883117827"
+  },
+  "ssh_key_path": {
+    "sensitive": false,
+    "type": "string",
+    "value": "./optifye-key.pem"
+  },
+  "vpc_id": {
+    "sensitive": false,
+    "type": "string",
+    "value": "vpc-0a99f52a797f8414c"
+  }
+}

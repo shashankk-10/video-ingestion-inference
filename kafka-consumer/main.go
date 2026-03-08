@@ -329,7 +329,7 @@ func (h *ConsumerHandler) uploadToS3(ctx context.Context, data []byte, key strin
 
 func main() {
 	cfg := loadConfig()
-	awsCfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(cfg.AWSRegion))
+	awsCfg, err := config.LoadDefaultConfig(context.Background(), config.WithRegion(cfg.AWSRegion))
 	if err != nil {
 		log.Fatalf("AWS config error: %v", err)
 	}
