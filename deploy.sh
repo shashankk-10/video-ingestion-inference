@@ -68,7 +68,13 @@ rm -rf "$K8S_DIR"
 cp -r "$K8S_SRC" "$K8S_DIR"
 
 # Cross-platform sed in-place (works on both GNU and BSD/macOS)
-_sed_inplace() { sed -i'' -e "$@"; }
+_sed_inplace() {
+    if sed --version >/dev/null 2>&1; then
+        sed -i "$@"      # GNU sed
+    else
+        sed -i '' "$@"   # BSD/macOS sed
+    fi
+}
 
 # Patch configmap
 _sed_inplace "s|<MSK_BOOTSTRAP_BROKERS>|$MSK_BROKERS|g" "$K8S_DIR/configmap.yaml"
@@ -89,10 +95,7 @@ echo "  ✓ Manifests generated in k8s-generated/"
 echo -e "\n[6/6] Deploying to EKS..."
 aws eks update-kubeconfig --name "$EKS_CLUSTER" --region $REGION
 
-# Create Kafka topic first
-echo "  Creating Kafka topic..."
-# We'll do this from within a pod or skip if auto-create is enabled
-
+# Topic auto-creation is enabled in MSK config (auto.create.topics.enable=true)
 kubectl apply -f "$K8S_DIR/configmap.yaml"
 echo "  ✓ ConfigMap applied"
 

@@ -17,3 +17,7 @@ k8s-generated/
 
 # Video files
 *.mp4
+
+# Terraform outputs generated locally by deploy.sh (the canonical copy
+# lives at terraform/tf-outputs.json and IS committed so CI/CD can use it)
+# tf-outputs.json

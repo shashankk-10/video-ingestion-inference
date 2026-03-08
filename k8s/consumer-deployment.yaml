@@ -17,6 +17,7 @@ spec:
       containers:
         - name: consumer
           image: <ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com/optifye/kafka-consumer:latest
+          imagePullPolicy: Always
           env:
             - name: KAFKA_BROKERS
               valueFrom:

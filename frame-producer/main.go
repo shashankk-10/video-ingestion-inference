@@ -148,7 +148,7 @@ func readJPEGFrame(br *bufio.Reader) ([]byte, error) {
 func main() {
 	cfg := loadConfig()
 	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds | log.Lshortfile)
-	log.Printf("Starting Producer v2.0 - Topic: %s", cfg.KafkaTopic)
+	log.Printf("Starting frame-producer | topic=%s fps=%d", cfg.KafkaTopic, cfg.FPS)
 
 	// ── Graceful Shutdown Setup ──
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

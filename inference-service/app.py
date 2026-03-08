@@ -1,7 +1,5 @@
 import logging
 import time
-import io
-from typing import Any
 
 import cv2
 import numpy as np
@@ -9,7 +7,6 @@ import torch
 from flask import Flask, jsonify, request
 from ultralytics import YOLO
 
-# Setup logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -18,11 +15,9 @@ logger = logging.getLogger("inference-service")
 
 app = Flask(__name__)
 
-# 1. Device Awareness: Use GPU if available
 device = "cuda" if torch.cuda.is_available() else "cpu"
 logger.info(f"Loading YOLOv5n model on device: {device}")
 
-# yolov5nu is the 'u'pdated version for the ultralytics framework
 model = YOLO("yolov5nu.pt")
 model.to(device)
 
@@ -43,11 +38,9 @@ def predict():
     """
     start_time = time.time()
 
-    # Dynamic thresholds from query params
     conf_thres = float(request.args.get("conf", 0.25))
     iou_thres = float(request.args.get("iou", 0.45))
 
-    # Identify frame keys and sort them to maintain order
     frame_keys = sorted(
         [k for k in request.files.keys() if k.startswith("frame_")],
         key=lambda x: int(x.split("_")[1]) if "_" in x else 0,
@@ -59,11 +52,9 @@ def predict():
     frames = []
     valid_keys = []
 
-    # 2. Optimized Preprocessing
     for key in frame_keys:
         file = request.files[key]
         try:
-            # Read directly into numpy without intermediate storage
             file_bytes = file.read()
             nparr = np.frombuffer(file_bytes, np.uint8)
             img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -79,8 +70,6 @@ def predict():
     if not frames:
         return jsonify({"error": "Could not decode any valid frames"}), 400
 
-    # 3. Batch Inference
-    # We pass 'device' explicitly and use the user-defined thresholds
     results = model(
         frames,
         conf=conf_thres,
@@ -89,15 +78,12 @@ def predict():
         verbose=False
     )
 
-    # 4. Efficient Result Parsing
     output = []
     for i, result in enumerate(results):
-        # The 'result' object contains boxes on the GPU; we move them to CPU once per frame
         boxes = result.boxes.cpu().numpy()
 
         detections = []
         for j in range(len(boxes)):
-            # Extracting via numpy attributes for speed
             xyxy = boxes.xyxy[j]
             detections.append({
                 "bbox": {
@@ -128,5 +114,4 @@ def predict():
     })
 
 if __name__ == "__main__":
-    # Note: For production, use Gunicorn or uWSGI instead of app.run
     app.run(host="0.0.0.0", port=8080, debug=False)

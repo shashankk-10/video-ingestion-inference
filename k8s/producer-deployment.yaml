@@ -17,6 +17,7 @@ spec:
       containers:
         - name: producer
           image: <ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com/optifye/frame-producer:latest
+          imagePullPolicy: Always
           env:
             - name: RTSP_URL
               valueFrom:
