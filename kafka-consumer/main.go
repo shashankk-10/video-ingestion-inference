@@ -94,9 +94,15 @@ type Detection struct {
 	ClassName  string  `json:"class_name"`
 }
 
+type FrameResult struct {
+	Key        string      `json:"key"`
+	Detections []Detection `json:"detections"`
+	Count      int         `json:"count"`
+}
+
 type InferenceResponse struct {
 	BatchSize       int           `json:"batch_size"`
-	Detections      [][]Detection `json:"detections"`
+	Results         []FrameResult `json:"results"`
 	InferenceTimeMs float64       `json:"inference_time_ms"`
 }
 
@@ -161,6 +167,7 @@ func (h *ConsumerHandler) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 			processAndReset()
 
 		case <-session.Context().Done():
+			processAndReset()
 			return nil
 		}
 	}
@@ -177,8 +184,8 @@ func (h *ConsumerHandler) processBatch(ctx context.Context, frames [][]byte, bat
 		return
 	}
 
-	if len(resp.Detections) > 0 && len(frames) > 0 {
-		annotated, err := annotateFrame(frames[0], resp.Detections[0])
+	if len(resp.Results) > 0 && len(frames) > 0 {
+		annotated, err := annotateFrame(frames[0], resp.Results[0].Detections)
 		if err != nil {
 			log.Printf("[Batch %d] Annotation failed: %v", batchID, err)
 			return
@@ -318,7 +325,10 @@ func (h *ConsumerHandler) uploadToS3(ctx context.Context, data []byte, key strin
 
 func main() {
 	cfg := loadConfig()
-	awsCfg, _ := config.LoadDefaultConfig(context.TODO(), config.WithRegion(cfg.AWSRegion))
+	awsCfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(cfg.AWSRegion))
+	if err != nil {
+		log.Fatalf("AWS config error: %v", err)
+	}
 
 	kafkaCfg := sarama.NewConfig()
 	kafkaCfg.Consumer.Offsets.Initial = sarama.OffsetOldest

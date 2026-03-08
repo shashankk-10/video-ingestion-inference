@@ -20,23 +20,25 @@ spec:
         lagThreshold: "50"
         offsetResetPolicy: "earliest"
 ---
-# ── HPA: Scale inference-service based on CPU utilization ──
-# Inference is CPU-bound — scale when workers are saturated.
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
+# ── KEDA: Scale inference-service based on Kafka consumer group lag ──
+# When Kafka lag grows, inference is the bottleneck — scale it up to
+# handle the increased batch volume from consumers.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
 metadata:
-  name: inference-hpa
+  name: inference-scaler
 spec:
   scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
     name: inference-service
-  minReplicas: 1
-  maxReplicas: 4
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 70
+  pollingInterval: 15
+  cooldownPeriod: 120
+  minReplicaCount: 1
+  maxReplicaCount: 4
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: "<MSK_BOOTSTRAP_BROKERS>"
+        consumerGroup: "inference-consumer-group"
+        topic: "video-stream-1"
+        lagThreshold: "100"
+        offsetResetPolicy: "earliest"

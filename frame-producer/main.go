@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -57,9 +58,9 @@ func getEnv(key, fallback string) string {
 
 func splitBrokers(s string) []string {
 	var brokers []string
-	for _, b := range bytes.Split([]byte(s), []byte(",")) {
-		if len(b) > 0 {
-			brokers = append(brokers, string(b))
+	for _, b := range strings.Split(s, ",") {
+		if b = strings.TrimSpace(b); b != "" {
+			brokers = append(brokers, b)
 		}
 	}
 	return brokers
@@ -75,6 +76,8 @@ func startFFmpeg(ctx context.Context, cfg Config) (*exec.Cmd, io.ReadCloser, err
 
 	args := []string{
 		"-rtsp_transport", "tcp",
+		"-analyzeduration", "5000000",
+		"-probesize", "10000000",
 		"-i", cfg.RTSPUrl,
 		"-vf", fmt.Sprintf("fps=%d,scale=%d:%d", cfg.FPS, cfg.Width, cfg.Height),
 		"-f", "image2pipe",

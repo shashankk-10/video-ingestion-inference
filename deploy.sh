@@ -67,18 +67,21 @@ K8S_DIR="$SCRIPT_DIR/k8s-generated"
 rm -rf "$K8S_DIR"
 cp -r "$K8S_SRC" "$K8S_DIR"
 
+# Cross-platform sed in-place (works on both GNU and BSD/macOS)
+_sed_inplace() { sed -i'' -e "$@"; }
+
 # Patch configmap
-sed -i "s|<MSK_BOOTSTRAP_BROKERS>|$MSK_BROKERS|g" "$K8S_DIR/configmap.yaml"
-sed -i "s|<RTSP_PRIVATE_IP>|$RTSP_PRIVATE_IP|g" "$K8S_DIR/configmap.yaml"
-sed -i "s|<S3_BUCKET_NAME>|$S3_BUCKET|g" "$K8S_DIR/configmap.yaml"
+_sed_inplace "s|<MSK_BOOTSTRAP_BROKERS>|$MSK_BROKERS|g" "$K8S_DIR/configmap.yaml"
+_sed_inplace "s|<RTSP_PRIVATE_IP>|$RTSP_PRIVATE_IP|g" "$K8S_DIR/configmap.yaml"
+_sed_inplace "s|<S3_BUCKET_NAME>|$S3_BUCKET|g" "$K8S_DIR/configmap.yaml"
 
 # Patch image references
-sed -i "s|<ACCOUNT_ID>|$ACCOUNT_ID|g" "$K8S_DIR/inference-deployment.yaml"
-sed -i "s|<ACCOUNT_ID>|$ACCOUNT_ID|g" "$K8S_DIR/consumer-deployment.yaml"
-sed -i "s|<ACCOUNT_ID>|$ACCOUNT_ID|g" "$K8S_DIR/producer-deployment.yaml"
+_sed_inplace "s|<ACCOUNT_ID>|$ACCOUNT_ID|g" "$K8S_DIR/inference-deployment.yaml"
+_sed_inplace "s|<ACCOUNT_ID>|$ACCOUNT_ID|g" "$K8S_DIR/consumer-deployment.yaml"
+_sed_inplace "s|<ACCOUNT_ID>|$ACCOUNT_ID|g" "$K8S_DIR/producer-deployment.yaml"
 
 # Patch KEDA
-sed -i "s|<MSK_BOOTSTRAP_BROKERS>|$MSK_BROKERS|g" "$K8S_DIR/keda-scaledobject.yaml"
+_sed_inplace "s|<MSK_BOOTSTRAP_BROKERS>|$MSK_BROKERS|g" "$K8S_DIR/keda-scaledobject.yaml"
 
 echo "  ✓ Manifests generated in k8s-generated/"
 
@@ -104,6 +107,15 @@ echo "  ✓ Kafka consumer deployed"
 
 kubectl apply -f "$K8S_DIR/producer-deployment.yaml"
 echo "  ✓ Frame producer deployed"
+
+# Apply KEDA autoscalers (requires KEDA to be installed on the cluster)
+if kubectl api-resources | grep -q scaledobjects; then
+    kubectl apply -f "$K8S_DIR/keda-scaledobject.yaml"
+    echo "  ✓ KEDA autoscalers applied"
+else
+    echo "  ⚠ KEDA not installed — skipping autoscaler manifests"
+    echo "    Install with: helm install keda kedacore/keda --namespace keda --create-namespace"
+fi
 
 echo ""
 echo "═══════════════════════════════════════════"
