@@ -219,9 +219,13 @@ loop:
 				Timestamp: ts,
 			}
 
-			// Non-blocking send
-			producer.Input() <- msg
-			frameCount++
+			// Avoid producer backpressure stalling frame extraction.
+			select {
+			case producer.Input() <- msg:
+				frameCount++
+			default:
+				log.Printf("Kafka producer buffer full, dropping frame index=%d", frameCount)
+			}
 
 			if frameCount%100 == 0 {
 				log.Printf("Processed %d frames", frameCount)

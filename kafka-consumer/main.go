@@ -215,9 +215,13 @@ func (h *ConsumerHandler) callInference(ctx context.Context, frames [][]byte) (*
 		if err != nil {
 			return nil, err
 		}
-		part.Write(frame)
+		if _, err := part.Write(frame); err != nil {
+			return nil, err
+		}
 	}
-	writer.Close()
+	if err := writer.Close(); err != nil {
+		return nil, err
+	}
 
 	req, err := http.NewRequestWithContext(ctx, "POST", h.cfg.InferenceURL, buf)
 	if err != nil {
@@ -338,6 +342,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Kafka error: %v", err)
 	}
+	defer group.Close()
 
 	handler := &ConsumerHandler{
 		cfg:      cfg,

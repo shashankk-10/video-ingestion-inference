@@ -3,7 +3,6 @@ terraform/.terraform/
 terraform/*.tfstate
 terraform/*.tfstate.backup
 terraform/*.pem
-terraform/.terraform.lock.hcl
 
 # Generated K8s manifests (rebuilt by deploy.sh)
 k8s-generated/

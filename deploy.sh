@@ -12,6 +12,24 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REGION="ap-south-1"
 
+require_cmd() {
+    local cmd="$1"
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        echo "ERROR: Required command '$cmd' is not installed."
+        exit 1
+    fi
+}
+
+# Tooling preflight
+for c in aws docker kubectl jq; do
+    require_cmd "$c"
+done
+
+if ! docker info >/dev/null 2>&1; then
+    echo "ERROR: Docker daemon is not reachable."
+    exit 1
+fi
+
 # ── Parse terraform outputs ──
 if [ ! -f "$SCRIPT_DIR/terraform/tf-outputs.json" ]; then
     echo "ERROR: terraform/tf-outputs.json not found. Run 'cd terraform && terraform output -json > tf-outputs.json'"
@@ -28,6 +46,12 @@ S3_BUCKET=$(jq -r '.s3_bucket_name.value' "$TF")
 RTSP_PRIVATE_IP=$(jq -r '.rtsp_instance_private_ip.value' "$TF")
 EKS_CLUSTER=$(jq -r '.eks_cluster_name.value' "$TF")
 
+if [[ "$MSK_BROKERS" == *":9092"* ]]; then
+    echo "⚠ WARNING: tf-outputs.json is using plaintext Kafka brokers (:9092)."
+    echo "  If Terraform has been updated for TLS, run:"
+    echo "    cd terraform && terraform output -json > tf-outputs.json"
+fi
+
 echo "═══════════════════════════════════════════"
 echo "  Optifye Pipeline Deployment"
 echo "═══════════════════════════════════════════"
@@ -40,7 +64,13 @@ echo "════════════════════════�
 
 # ── Step 1: ECR Login ──
 echo -e "\n[1/6] Logging into ECR..."
-aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin "$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com"
+if ! aws sts get-caller-identity >/dev/null 2>&1; then
+    echo "ERROR: AWS authentication/network check failed (STS unreachable or credentials invalid)."
+    exit 1
+fi
+
+ECR_PASSWORD=$(aws ecr get-login-password --region "$REGION")
+echo "$ECR_PASSWORD" | docker login --username AWS --password-stdin "$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com"
 
 # ── Step 2: Build and Push Inference Service ──
 echo -e "\n[2/6] Building inference-service..."
@@ -94,6 +124,11 @@ echo "  ✓ Manifests generated in k8s-generated/"
 # ── Step 6: Deploy to EKS ──
 echo -e "\n[6/6] Deploying to EKS..."
 aws eks update-kubeconfig --name "$EKS_CLUSTER" --region $REGION
+
+if ! kubectl top nodes >/dev/null 2>&1; then
+    echo "  ⚠ metrics-server not available. Install for resource metrics:"
+    echo "    kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml"
+fi
 
 # Topic auto-creation is enabled in MSK config (auto.create.topics.enable=true)
 kubectl apply -f "$K8S_DIR/configmap.yaml"

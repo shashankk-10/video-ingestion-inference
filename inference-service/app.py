@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 
 import cv2
@@ -14,6 +15,7 @@ logging.basicConfig(
 logger = logging.getLogger("inference-service")
 
 app = Flask(__name__)
+MAX_BATCH_SIZE = int(os.getenv("MAX_BATCH_SIZE", "64"))
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 logger.info(f"Loading YOLOv5n model on device: {device}")
@@ -38,8 +40,14 @@ def predict():
     """
     start_time = time.time()
 
-    conf_thres = float(request.args.get("conf", 0.25))
-    iou_thres = float(request.args.get("iou", 0.45))
+    try:
+        conf_thres = float(request.args.get("conf", 0.25))
+        iou_thres = float(request.args.get("iou", 0.45))
+    except ValueError:
+        return jsonify({"error": "Invalid conf/iou values. Expected numeric values between 0 and 1."}), 400
+
+    if not (0 <= conf_thres <= 1) or not (0 <= iou_thres <= 1):
+        return jsonify({"error": "Invalid conf/iou values. Both must be between 0 and 1."}), 400
 
     frame_keys = sorted(
         [k for k in request.files.keys() if k.startswith("frame_")],
@@ -48,6 +56,12 @@ def predict():
 
     if not frame_keys:
         return jsonify({"error": "No frames provided. Use fields 'frame_0', 'frame_1', etc."}), 400
+
+    if len(frame_keys) > MAX_BATCH_SIZE:
+        return jsonify({
+            "error": f"Batch too large. Max supported frames per request: {MAX_BATCH_SIZE}",
+            "received": len(frame_keys),
+        }), 413
 
     frames = []
     valid_keys = []
