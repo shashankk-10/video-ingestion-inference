@@ -37,7 +37,7 @@
   "msk_bootstrap_brokers": {
     "sensitive": false,
     "type": "string",
-    "value": "b-1.optifyekafka.qpzap4.c4.kafka.ap-south-1.amazonaws.com:9092,b-2.optifyekafka.qpzap4.c4.kafka.ap-south-1.amazonaws.com:9092"
+    "value": "b-1.optifyekafka.yycx23.c4.kafka.ap-south-1.amazonaws.com:9094,b-2.optifyekafka.yycx23.c4.kafka.ap-south-1.amazonaws.com:9094"
   },
   "rtsp_instance_private_ip": {
     "sensitive": false,

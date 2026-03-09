@@ -24,8 +24,8 @@ spec:
                 configMapKeyRef:
                   name: pipeline-config
                   key: kafka_brokers
-            - name: KAFKA_TOPIC
-              value: "video-stream-1"
+            - name: KAFKA_TOPICS
+              value: "video-stream-1,video-stream-2"
             - name: CONSUMER_GROUP
               value: "inference-consumer-group"
             - name: INFERENCE_URL

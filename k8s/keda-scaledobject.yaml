@@ -19,6 +19,15 @@ spec:
         topic: "video-stream-1"
         lagThreshold: "50"
         offsetResetPolicy: "earliest"
+        tls: "enable"
+    - type: kafka
+      metadata:
+        bootstrapServers: "<MSK_BOOTSTRAP_BROKERS>"
+        consumerGroup: "inference-consumer-group"
+        topic: "video-stream-2"
+        lagThreshold: "50"
+        offsetResetPolicy: "earliest"
+        tls: "enable"
 ---
 # ── KEDA: Scale inference-service based on Kafka consumer group lag ──
 # When Kafka lag grows, inference is the bottleneck — scale it up to
@@ -42,3 +51,12 @@ spec:
         topic: "video-stream-1"
         lagThreshold: "100"
         offsetResetPolicy: "earliest"
+        tls: "enable"
+    - type: kafka
+      metadata:
+        bootstrapServers: "<MSK_BOOTSTRAP_BROKERS>"
+        consumerGroup: "inference-consumer-group"
+        topic: "video-stream-2"
+        lagThreshold: "100"
+        offsetResetPolicy: "earliest"
+        tls: "enable"

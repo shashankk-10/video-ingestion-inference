@@ -58,6 +58,10 @@ GitHub Actions workflow at `.github/workflows/deploy.yaml`:
 - Generates manifests from Terraform outputs
 - Deploys to EKS and verifies rollout
 
+Required repository secrets (choose one auth mode):
+- OIDC mode: `AWS_ROLE_ARN`
+- Access key fallback: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
+
 ## Key Operational Checks
 
 - Pods: `kubectl get pods -A`

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -40,7 +41,7 @@ var bufferPool = sync.Pool{
 
 type Config struct {
 	KafkaBrokers    []string
-	KafkaTopic      string
+	KafkaTopics     []string
 	ConsumerGroup   string
 	InferenceURL    string
 	S3Bucket        string
@@ -58,9 +59,14 @@ func loadConfig() Config {
 		return fallback
 	}
 
+	topics := getEnv("KAFKA_TOPICS", "")
+	if topics == "" {
+		topics = getEnv("KAFKA_TOPIC", "video-stream-1")
+	}
+
 	return Config{
 		KafkaBrokers:    strings.Split(getEnv("KAFKA_BROKERS", "localhost:9092"), ","),
-		KafkaTopic:      getEnv("KAFKA_TOPIC", "video-stream-1"),
+		KafkaTopics:     strings.Split(topics, ","),
 		ConsumerGroup:   getEnv("CONSUMER_GROUP", "inference-consumer-group"),
 		InferenceURL:    getEnv("INFERENCE_URL", "http://inference-service:8080/predict"),
 		S3Bucket:        getEnv("S3_BUCKET", "optifye-annotated-frames"),
@@ -117,6 +123,15 @@ type ConsumerHandler struct {
 func (h *ConsumerHandler) Setup(_ sarama.ConsumerGroupSession) error   { return nil }
 func (h *ConsumerHandler) Cleanup(_ sarama.ConsumerGroupSession) error { return nil }
 
+func extractStreamID(msg *sarama.ConsumerMessage) string {
+	for _, h := range msg.Headers {
+		if string(h.Key) == "stream_id" {
+			return string(h.Value)
+		}
+	}
+	return "unknown"
+}
+
 func (h *ConsumerHandler) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	batch := make([][]byte, 0, h.cfg.BatchSize)
 	batchMsgs := make([]*sarama.ConsumerMessage, 0, h.cfg.BatchSize)
@@ -124,17 +139,18 @@ func (h *ConsumerHandler) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 	defer batchTimeout.Stop()
 
 	var batchCount uint64
+	var batchStreamID string
 
 	processAndReset := func() {
 		if len(batch) > 0 {
-			// Pass session context to ensure uploads cancel on shutdown
-			h.processBatch(session.Context(), batch, batchCount)
+			h.processBatch(session.Context(), batch, batchCount, batchStreamID)
 			for _, m := range batchMsgs {
 				session.MarkMessage(m, "")
 			}
 			batchCount++
-			batch = batch[:0] // Reuse slice capacity
+			batch = batch[:0]
 			batchMsgs = batchMsgs[:0]
+			batchStreamID = ""
 		}
 	}
 
@@ -144,6 +160,15 @@ func (h *ConsumerHandler) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 			if !ok {
 				processAndReset()
 				return nil
+			}
+
+			streamID := extractStreamID(msg)
+			// Flush if stream_id changes mid-batch to keep partitions clean
+			if len(batch) > 0 && streamID != batchStreamID {
+				processAndReset()
+			}
+			if len(batch) == 0 {
+				batchStreamID = streamID
 			}
 
 			batch = append(batch, msg.Value)
@@ -175,32 +200,32 @@ func (h *ConsumerHandler) ConsumeClaim(session sarama.ConsumerGroupSession, clai
 
 // ── Core Pipeline ──
 
-func (h *ConsumerHandler) processBatch(ctx context.Context, frames [][]byte, batchID uint64) {
+func (h *ConsumerHandler) processBatch(ctx context.Context, frames [][]byte, batchID uint64, streamID string) {
 	start := time.Now()
 
 	resp, err := h.callInference(ctx, frames)
 	if err != nil {
-		log.Printf("[Batch %d] Inference failed: %v", batchID, err)
+		log.Printf("[%s|Batch %d] Inference failed: %v", streamID, batchID, err)
 		return
 	}
 
 	if len(resp.Results) > 0 && len(frames) > 0 {
 		annotated, err := annotateFrame(frames[0], resp.Results[0].Detections)
 		if err != nil {
-			log.Printf("[Batch %d] Annotation failed: %v", batchID, err)
+			log.Printf("[%s|Batch %d] Annotation failed: %v", streamID, batchID, err)
 			return
 		}
 
-		key := fmt.Sprintf("%s/batch_%06d_%s.jpg",
-			h.cfg.S3Prefix, batchID, time.Now().Format("20060102_150405"))
+		key := fmt.Sprintf("%s/%s/batch_%06d_%s.jpg",
+			h.cfg.S3Prefix, streamID, batchID, time.Now().Format("20060102_150405"))
 
 		if err := h.uploadToS3(ctx, annotated, key); err != nil {
-			log.Printf("[Batch %d] S3 upload failed: %v", batchID, err)
+			log.Printf("[%s|Batch %d] S3 upload failed: %v", streamID, batchID, err)
 			return
 		}
 
-		log.Printf("[Batch %d] Success: s3://%s/%s (Inf: %.1fms, Total: %v)",
-			batchID, h.cfg.S3Bucket, key, resp.InferenceTimeMs, time.Since(start))
+		log.Printf("[%s|Batch %d] Success: s3://%s/%s (Inf: %.1fms, Total: %v)",
+			streamID, batchID, h.cfg.S3Bucket, key, resp.InferenceTimeMs, time.Since(start))
 	}
 }
 
@@ -335,6 +360,8 @@ func main() {
 	}
 
 	kafkaCfg := sarama.NewConfig()
+	kafkaCfg.Net.TLS.Enable = true
+	kafkaCfg.Net.TLS.Config = &tls.Config{}
 	kafkaCfg.Consumer.Offsets.Initial = sarama.OffsetOldest
 	kafkaCfg.Consumer.Fetch.Max = 15 * 1024 * 1024 // Increased for high-res frames
 
@@ -359,9 +386,9 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
-	log.Println("Optifye Consumer Online.")
+	log.Printf("Optifye Consumer Online. Topics: %v", cfg.KafkaTopics)
 	for {
-		if err := group.Consume(ctx, []string{cfg.KafkaTopic}, handler); err != nil {
+		if err := group.Consume(ctx, cfg.KafkaTopics, handler); err != nil {
 			log.Printf("Consumer Error: %v", err)
 		}
 		if ctx.Err() != nil {

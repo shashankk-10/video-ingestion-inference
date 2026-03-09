@@ -5,5 +5,5 @@ metadata:
 data:
   # ── Replace these after terraform apply ──
   kafka_brokers: "<MSK_BOOTSTRAP_BROKERS>"
-  rtsp_url: "rtsp://<RTSP_PRIVATE_IP>:8554/stream"
+  rtsp_urls: "rtsp://<RTSP_PRIVATE_IP>:8554/stream1,rtsp://<RTSP_PRIVATE_IP>:8554/stream2"
   s3_bucket: "<S3_BUCKET_NAME>"

@@ -19,18 +19,18 @@ spec:
           image: <ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com/optifye/frame-producer:latest
           imagePullPolicy: Always
           env:
-            - name: RTSP_URL
+            - name: RTSP_URLS
               valueFrom:
                 configMapKeyRef:
                   name: pipeline-config
-                  key: rtsp_url
+                  key: rtsp_urls
             - name: KAFKA_BROKERS
               valueFrom:
                 configMapKeyRef:
                   name: pipeline-config
                   key: kafka_brokers
-            - name: KAFKA_TOPIC
-              value: "video-stream-1"
+            - name: KAFKA_TOPIC_PREFIX
+              value: "video-stream"
             - name: TARGET_FPS
               value: "5"
             - name: JPEG_QUALITY
